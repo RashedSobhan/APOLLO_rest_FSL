@@ -1,0 +1,100 @@
+
+1. run the APOLLO_rest_FSL_sub_script_GPU.sh by writing the following in the terminal 
+
+cd /gpfs/home/wae16sru/APOLLO_rest_FSL
+sbatch APOLLO_rest_FSL_sub_script_GPU.sh
+
+please note: change the subject name in the APOLLO_rest_FSL_sub_script_GPU.sh code; 
+this code runs APOLLO_rest_FSL_code.sh for the subject and gives two output: 
+
+*_T1W_bet_robust and *_T1W_brain; after QC decide which one to take, as of31/12/2022 RS took the T1W_brain with neck removal ones 
+
+2. once each subject has a T1W_brain nifti file then run the following code 
+
+./APOLLO_rest_preproc.sh
+
+please note: 1.  please change the subject id accordingly in the for loop at the beginnning. 2. a design.fsf file is created in the directory APOLLO_rest_FSL 
+in the name of "design.fsf"
+
+this code copies the design file in each subject's directory and then runs feat 
+
+to see the output of feat go to nomachine and then type 
+
+firefox ./sub_009_A/sub_009_A_rest.feat/report_reg.html (change the subject name accordingly opening each window in firefox to see the feat output)) 
+
+3. once all the preprocessing is done, then type this command on the terminal 
+
+cd /gpfs/home/wae16sru/APOLLO_rest_FSL
+./APOLLO_rest_ICA_aroma_sub_script.sh 
+
+this will copy the APOLLO_rest_ICA_aroma.sh file in each subject and then replace the sub_001 of the parent file by the corresponding subject number 
+so that python code running is not tedious
+
+please note: using typical submission script way does not work as python is callled and after python called you cannot copy the directories with $ sign.  
+
+
+4. After this run APOLLO_rest_FSL_motion_filtering.sh to find the motion parameters in the motion_parameters_RS_header file. 
+
+check whether any of the first three values are over >0.035 (2 degree) or >1.5mm. 
+
+5. now once the data is cleaned through ICA the cleaned ddat is in ICA_AROMA file of each subject under .feat file
+
+type "fsl" in terminal and then choose melodic ica
+
+IN THE DATA WINDOW : input the subject number (for example, with anosmic 19 hyposmic  subject, subject number would be 7; 
+then give the output doirectory name:/gpfs/home/wae16sru/APOLLO_rest_FSL/APOLLO_hyposmic
+insert subject in ascending serial 
+input file will be in the directory:  /gpfs/home/wae16sru/APOLLO_rest_FSL/sub_001_A/sub_001_A_rest.feat/ICA_AROMA/denoised*.nii.gz (for sub_001)
+
+in the REGISTRATION TAB 
+make resampling resolution 2mm 
+
+IN THE PRE_STATS : de activate all
+IN THE STAS: set 30 ICA components, keep variance activated 
+put on multi-session concatanation on
+
+
+6. before doing dual regression match the dimesnions of the ICA_AROMA/denoised_func_data_nonaggr.nii.gz to the 
+/gpfs/home/wae16sru/APOLLO_rest_FSL/APOLLO_anos+hypos_2mm.gica/groupmelodic.ica/melodic_IC.nii.gz
+
+for that run this code: 
+cd /gpfs/home/wae16sru/APOLLO_rest_FSL
+./APOLLO_rest_dimension_matching.sh 
+
+change the subjects sequence to get the subject numbers correct  
+
+
+7. Once the 2mm dimension are same for both individual subjects and the  .gica/groupmelodic.ica/melodic_IC.nii.gz then we are ready to run dual regression
+
+before dual regression use "Glm" to create the appropiate matrix and contrast. check this website for help: https://open.win.ox.ac.uk/pages/fslcourse/practicals/ica/index.html
+
+For anosmia vs hyposmia the design is created already and saved in the directory : /gpfs/home/wae16sru/APOLLO_rest_FSL/APOLLO_rest_FSL_GLM_design
+
+under the name APOLLO_rest_GLM.*
+
+For dual regression this website was followed : https://open.win.ox.ac.uk/pages/fslcourse/practicals/ica/index.html
+
+group A: anosmia group B: hyposmia
+
+type the follwoing code in the terminal: 
+
+dual_regression /gpfs/home/wae16sru/APOLLO_rest_FSL/APOLLO_anos+hypos_2mm.gica/groupmelodic.ica/melodic_IC.nii.gz 1 \
+       /gpfs/home/wae16sru/APOLLO_rest_FSL/APOLLO_rest_FSL_GLM_design/APOLLO_rest_GLM.mat /gpfs/home/wae16sru/APOLLO_rest_FSL/APOLLO_rest_FSL_GLM_design/APOLLO_rest_GLM.con 5000 \
+       /gpfs/home/wae16sru/APOLLO_rest_FSL/APOLLO_anos+hypos_2mm.dr `cat /gpfs/home/wae16sru/APOLLO_rest_FSL/2mm_inputlist_new.txt`
+
+
+after dual regression see the output using : 
+
+
+fsleyes -std /gpfs/home/wae16sru/APOLLO_rest_FSL/APOLLO_anos+hypos_2mm.gica/groupmelodic.ica/melodic_IC   -un -cm red-yellow -nc blue-lightblue -dr 4 15   /gpfs/home/wae16sru/APOLLO_rest_FSL/APOLLO_anos+hypos_2mm_batch.dr/dr_stage3_ic0007_tfce_corrp_tstat3.nii.gz   -cm green -dr 0.95 1 &
+
+
+output of dual regression : /gpfs/home/wae16sru/APOLLO_rest_FSL/APOLLO_anos+hypos_2mm_batch.dr
+output of group ica: /gpfs/home/wae16sru/APOLLO_rest_FSL/APOLLO_anos+hypos_2mm.gica
+output of feat: /gpfs/home/wae16sru/APOLLO_rest_FSL/sub_001_A/sub_001_A_rest.feat (for each subject)
+output of ICA AROMA: /gpfs/home/wae16sru/APOLLO_rest_FSL/sub_001_A/sub_001_A_rest.feat/ICA_AROMA
+cleaned/denoised data : /gpfs/home/wae16sru/APOLLO_rest_FSL/sub_001_A/sub_001_A_rest.feat/ICA_AROMA/denoised_func_data_nonaggr.nii.gz
+
+denoised data with 2mm res: /gpfs/home/wae16sru/APOLLO_rest_FSL/sub_001_A/sub_001_A_rest.feat/ICA_AROMA/2mm_denoised_func_data_nonaggr.nii.gz
+
+the resolution of denoised data (2mm) and the resolution of /gpfs/home/wae16sru/APOLLO_rest_FSL/APOLLO_anos+hypos_2mm.gica/groupmelodic.ica/melodic_IC.nii.gz should be same!!!!
